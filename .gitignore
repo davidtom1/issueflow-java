@@ -1,8 +1,11 @@
-Readme.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+.env
+application-local.yml
+application-local.yaml
 
 ### STS ###
 .apt_generated
