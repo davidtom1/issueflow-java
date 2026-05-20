@@ -8,8 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface MentionRepository extends JpaRepository<Mention, Long> {
-    Page<Mention> findByMentionedUserId(Long mentionedUserId, Pageable pageable);
-
+    Page<Mention> findByMentionedUserIdOrderByCreatedAtDesc(Long mentionedUserId, Pageable pageable);
     @Modifying
     @Transactional
     void deleteByCommentId(Long commentId);

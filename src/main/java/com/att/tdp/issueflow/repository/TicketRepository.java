@@ -20,7 +20,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
         t.deleted = false AND
         t.status != :done"""
             )
-        List<Ticket> findOverdue(@Param("now") Instant now, @Param("done") TicketStatus done);
+        List<Ticket> findOverdueNonDoneNotDeleted(@Param("now") Instant now, @Param("done") TicketStatus done);
 
     // Returns each assignee's ID with their count of open (non-done, non-deleted) tickets in the given project
     @Query("""
