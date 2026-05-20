@@ -9,17 +9,11 @@ spring:
     username: sa
     password: password
     driverClassName: org.h2.Driver
-  sql:
-    init:
-      platform: mssql
-  h2:
-    console:
-      enabled: true
   jpa:
-    database: POSTGRESQL
+    database: H2
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
   servlet:
     multipart:
       max-file-size: 10MB
