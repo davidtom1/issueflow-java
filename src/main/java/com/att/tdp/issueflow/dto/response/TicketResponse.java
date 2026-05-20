@@ -20,9 +20,6 @@ public record TicketResponse(
         @JsonProperty("isOverdue")
         boolean overdue,
         Instant lastAutoEscalatedAt,
-        boolean deleted,
-        Instant deletedAt,
-        Long deletedById,
         Long version,
         Instant createdAt,
         Instant updatedAt

@@ -8,7 +8,9 @@ import java.time.Instant;
 
 public record AuditLogResponse(
         Long id,
+        @JsonProperty("actor")
         AuditActorType actorType,
+        @JsonProperty("performedBy")
         Long actorUserId,
         AuditAction action,
         EntityType entityType,

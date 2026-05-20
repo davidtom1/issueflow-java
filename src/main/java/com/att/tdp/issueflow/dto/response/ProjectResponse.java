@@ -8,9 +8,6 @@ public record ProjectResponse(
         String description,
         Long ownerId,
         String ownerUsername,
-        boolean deleted,
-        Instant deletedAt,
-        Long deletedById,
         Long version,
         Instant createdAt,
         Instant updatedAt
