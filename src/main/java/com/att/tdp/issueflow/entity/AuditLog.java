@@ -23,7 +23,7 @@ public class AuditLog {
     @Column(name = "actor_type", nullable = false)
     private AuditActorType actorType;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_user_id")
     private User actorUser;
 

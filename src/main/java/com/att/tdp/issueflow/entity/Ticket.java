@@ -55,7 +55,7 @@ public class Ticket {
     private Instant lastAutoEscalatedAt;
 
     @Column(nullable = false)
-    private boolean isDeleted = false;
+    private boolean deleted = false;
 
     private Instant deletedAt;
 
