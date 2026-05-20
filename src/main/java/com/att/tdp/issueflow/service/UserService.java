@@ -8,6 +8,7 @@ import com.att.tdp.issueflow.exception.ConflictException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,10 +78,14 @@ public class UserService {
 
     @Transactional
     public void deleteUser(Long id) {
-        if(!userRepository.existsById(id)) {
-            throw new NotFoundException("User not found");
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        try {
+            userRepository.delete(user);
+            userRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new ConflictException("User is referenced and cannot be deleted");
         }
-        userRepository.deleteById(id);
     }
 
     

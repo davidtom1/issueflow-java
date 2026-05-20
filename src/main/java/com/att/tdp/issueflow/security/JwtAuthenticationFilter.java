@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final InvalidatedTokenRepository invalidatedTokenRepository;
     private final UserRepository userRepository;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Override
     protected void doFilterInternal(
@@ -54,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Logout stores invalidated jti values, so a matching token id is no longer accepted.
             if (tokenId == null || invalidatedTokenRepository.existsByTokenId(tokenId)) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+                jwtAuthenticationEntryPoint.writeUnauthorizedResponse(request, response);
                 return;
             }
 
@@ -65,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // A token for a deleted or missing user should not authenticate the request.
             if (user == null) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+                jwtAuthenticationEntryPoint.writeUnauthorizedResponse(request, response);
                 return;
             }
 
@@ -84,7 +85,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (JwtException | IllegalArgumentException exception) {
             // Invalid, expired, malformed, or otherwise unusable tokens are rejected with 401.
             SecurityContextHolder.clearContext();
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+            jwtAuthenticationEntryPoint.writeUnauthorizedResponse(request, response);
         }
     }
 }
