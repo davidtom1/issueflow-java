@@ -4,8 +4,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+
 
 @Entity
 @Table(name = "attachments")
@@ -32,7 +34,7 @@ public class Attachment {
     @Column(nullable = false)
     private Long sizeBytes;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(nullable = false)
     private byte[] data;
 

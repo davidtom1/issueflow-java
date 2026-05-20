@@ -3,7 +3,10 @@
     "allow": [
       "Bash(Start-Sleep -Seconds 20)",
       "Bash(Get-Content \"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-User-Desktop-issueflow-java\\\\785c3f87-2f49-44e6-b8e1-0af30d8f93f8\\\\tasks\\\\b1112qg14.output\")",
-      "Bash(Select-Object -Last 40)"
+      "Bash(Select-Object -Last 40)",
+      "Bash(New-Item -ItemType Directory -Path \"c:\\\\Users\\\\User\\\\Desktop\\\\issueflow-java\\\\src\\\\main\\\\java\\\\com\\\\att\\\\tdp\\\\issueflow\\\\repository\" -Force)",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"Created\")"
     ]
   }
 }
