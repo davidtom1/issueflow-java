@@ -36,7 +36,7 @@ public class Comment {
     @Column(nullable = false)
     private Instant updatedAt;
 
-        @PrePersist
+    @PrePersist
     void onCreate() {
         Instant now = Instant.now();
         this.createdAt = now;
