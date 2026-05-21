@@ -36,6 +36,6 @@ public class AuthController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader
     ) {
         authService.logout(authorizationHeader);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 }

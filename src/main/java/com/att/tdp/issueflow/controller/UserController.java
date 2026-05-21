@@ -20,7 +20,7 @@ public class UserController {
     
     @PostMapping
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request){
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
+        return ResponseEntity.ok(userService.createUser(request));
 
     }
 
@@ -44,7 +44,7 @@ public class UserController {
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long userId){
             userService.deleteUser(userId);
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok().build();
 
     }
 }

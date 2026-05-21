@@ -132,7 +132,7 @@ class AuthSecurityIntegrationTests {
 
         mockMvc.perform(post("/auth/logout")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/auth/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -149,7 +149,7 @@ class AuthSecurityIntegrationTests {
                                 "password", password,
                                 "role", "DEVELOPER"
                         ))))
-                .andExpect(status().isCreated())
+                .andExpect(status().isOk())
                 .andReturn();
     }
 
