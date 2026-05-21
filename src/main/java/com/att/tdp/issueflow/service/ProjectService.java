@@ -1,5 +1,6 @@
 package com.att.tdp.issueflow.service;
 import com.att.tdp.issueflow.dto.request.CreateProjectRequest;
+import com.att.tdp.issueflow.dto.request.UpdateProjectRequest;
 import com.att.tdp.issueflow.dto.response.ProjectResponse;
 import com.att.tdp.issueflow.entity.Project;
 import com.att.tdp.issueflow.entity.ProjectMember;
@@ -54,10 +55,14 @@ public class ProjectService {
     }     
 
     @Transactional
-    public void updateProject(Long id, Project updatedProject) {
+    public void updateProject(Long id, UpdateProjectRequest request) {
         Project existingProject = projectRepository.findByIdAndDeletedFalse(id).orElseThrow(() -> new NotFoundException("Project not found with id: " + id));
-        existingProject.setName(updatedProject.getName());
-        existingProject.setDescription(updatedProject.getDescription());
+        if (request.getName() != null) {
+            existingProject.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            existingProject.setDescription(request.getDescription());
+        }
         projectRepository.save(existingProject);
     }
 
