@@ -8,10 +8,12 @@ import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
+import com.att.tdp.issueflow.security.AuthenticatedUser;
 import com.att.tdp.issueflow.entity.enums.TicketStatus;
 import com.att.tdp.issueflow.entity.Project;
 import com.att.tdp.issueflow.exception.BadRequestException;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.repository.ProjectMemberRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class TicketService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final AutoAssignmentService autoAssignmentService;
+    private final ProjectMemberRepository projectMemberRepository;
     private static final Map<TicketStatus, Set<TicketStatus>> ALLOWED_TRANSITIONS = Map.of(
     TicketStatus.TODO,        Set.of(TicketStatus.IN_PROGRESS),
     TicketStatus.IN_PROGRESS, Set.of(TicketStatus.IN_REVIEW),
@@ -44,6 +47,7 @@ public class TicketService {
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new NotFoundException("User not found with id: " + request.getAssigneeId()));
+            validateAssigneeBelongsToProject(request.getProjectId(), assignee.getId());
         } else {
             assignee = autoAssignmentService.pickAssignee(request.getProjectId());
         }
@@ -62,7 +66,7 @@ public class TicketService {
 
     @Transactional
     public TicketResponse updateTicket(Long id, UpdateTicketRequest request) {
-        Ticket ticket = ticketRepository.findByIdAndDeletedFalse(id)
+        Ticket ticket = ticketRepository.findByIdAndProjectDeletedFalseAndDeletedFalse(id)
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
         if(ticket.getStatus() == TicketStatus.DONE) {
             throw new BadRequestException("Cannot update a ticket that is DONE");
@@ -94,6 +98,7 @@ public class TicketService {
         }
         User assignee;
         if (request.getAssigneeId() != null) {
+            validateAssigneeBelongsToProject(ticket.getProject().getId(), request.getAssigneeId());
             assignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new NotFoundException("User not found with id: " + request.getAssigneeId()));    
             ticket.setAssignee(assignee);
@@ -102,22 +107,31 @@ public class TicketService {
         return toResponse(ticket);
     }
 
-
-
     @Transactional(readOnly = true)
     public List<TicketResponse> getTicketsByProject(Long projectId) {
-        return ticketRepository.findByProjectIdAndDeletedFalse(projectId).stream()
+        return ticketRepository.findByProjectIdAndProjectDeletedFalseAndDeletedFalse(projectId).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public TicketResponse getTicketById(Long id) {
-        Ticket ticket = ticketRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
+        Ticket ticket = ticketRepository.findByIdAndProjectDeletedFalseAndDeletedFalse(id)
+        .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
         return toResponse(ticket);
     }
 
+    @Transactional
+    public void softDeleteTicket(Long ticketId, AuthenticatedUser actingUser){
+        Ticket ticket = ticketRepository.findByIdAndProjectDeletedFalseAndDeletedFalse(ticketId)
+                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));
+        User actingUserObj = userRepository.findById(actingUser.id())
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + actingUser.id()));
+        ticket.setDeleted(true);
+        ticket.setDeletedAt(java.time.Instant.now());
+        ticket.setDeletedBy(actingUserObj);
+        ticketRepository.save(ticket);
+    }
 
     private TicketResponse toResponse(Ticket ticket) {
         TicketResponse response = new TicketResponse(
@@ -139,15 +153,19 @@ public class TicketService {
         );
         return response;
     }
-
-
     
-        private boolean isValidTransition(TicketStatus current, TicketStatus requested) {
-            if (current == requested) {
-                return true; // no-op, not really changing
-            }
-            return ALLOWED_TRANSITIONS.get(current).contains(requested);
+    private boolean isValidTransition(TicketStatus current, TicketStatus requested) {
+        if (current == requested) {
+            return true; // no-op, not really changing
         }
+        return ALLOWED_TRANSITIONS.get(current).contains(requested);
+    }
+
+    private void validateAssigneeBelongsToProject(Long projectId, Long assigneeId){
+        if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, assigneeId)) {
+            throw new BadRequestException("User is not a member of the project");
+        }
+    }
 
 
 
