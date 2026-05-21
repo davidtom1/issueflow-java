@@ -1,8 +1,10 @@
 package com.att.tdp.issueflow.controller;
 import com.att.tdp.issueflow.dto.request.CreateTicketRequest;
 import com.att.tdp.issueflow.dto.request.UpdateTicketRequest;
+import com.att.tdp.issueflow.dto.response.CsvImportResponse;
 import com.att.tdp.issueflow.dto.response.TicketResponse;
 import com.att.tdp.issueflow.security.AuthenticatedUser;
+import com.att.tdp.issueflow.service.TicketCsvService;
 import com.att.tdp.issueflow.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 @RestController
@@ -24,6 +30,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TicketController {
     private final TicketService ticketService;
+    private final TicketCsvService ticketCsvService;
+
 
     @GetMapping
     public ResponseEntity<List<TicketResponse>> getTicketsByProject(@RequestParam Long projectId){
@@ -54,4 +62,24 @@ public class TicketController {
         ticketService.softDeleteTicket(ticketId, actingUser);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<String> exportTickets(@RequestParam Long projectId) {
+        String csv = ticketCsvService.exportTickets(projectId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"tickets-" + projectId + ".csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv);
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CsvImportResponse> importTickets(
+        @RequestPart("file") MultipartFile file,
+        @RequestParam Long projectId
+) {
+    CsvImportResponse response = ticketCsvService.importTickets(projectId, file);
+    return ResponseEntity.ok(response);
+}
 }
