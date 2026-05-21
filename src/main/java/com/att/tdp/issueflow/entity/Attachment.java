@@ -35,7 +35,7 @@ public class Attachment {
     private Long sizeBytes;
 
     @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BYTEA")
     private byte[] data;
 
     @ManyToOne(fetch = FetchType.LAZY)
