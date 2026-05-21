@@ -1,16 +1,18 @@
 package com.att.tdp.issueflow.service;
 import com.att.tdp.issueflow.dto.response.CommentResponse;
 import com.att.tdp.issueflow.dto.response.MentionedUserResponse;
+import com.att.tdp.issueflow.dto.response.PagedResponse;
 import com.att.tdp.issueflow.entity.Comment;
 import com.att.tdp.issueflow.entity.Mention;
 import com.att.tdp.issueflow.entity.User;
-import com.att.tdp.issueflow.exception.BadRequestException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.MentionRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 
@@ -34,18 +36,15 @@ public class MentionService {
     public void rebuildMentions(Comment comment){
         mentionRepository.deleteByCommentId(comment.getId());
         Set<String> mentionedUsernames = extractMentionedUsernames(comment.getContent());
-        for (String username : mentionedUsernames) {
-            try {
-                User mentionedUser = findUserByUsernameIgnoreCase(username);
-                Mention mention = new Mention();
-                mention.setComment(comment);
-                mention.setTicket(comment.getTicket());
-                mention.setProject(comment.getTicket().getProject());
-                mention.setMentionedUser(mentionedUser);
-                mentionRepository.save(mention);
-            } catch (NotFoundException e) {
-                throw new BadRequestException("Mentioned user not found: " + username);
-            }
+    for (String username : mentionedUsernames) {
+        userRepository.findByUsernameIgnoreCase(username).ifPresent(mentionedUser -> {
+            Mention mention = new Mention();
+            mention.setComment(comment);
+            mention.setTicket(comment.getTicket());
+            mention.setProject(comment.getTicket().getProject());
+            mention.setMentionedUser(mentionedUser);
+            mentionRepository.save(mention);
+        });
         }
     }
 
@@ -54,7 +53,6 @@ public class MentionService {
         mentionRepository.deleteByCommentId(comment.getId());
     }
 
-  
     @Transactional(readOnly = true)
     public List<MentionedUserResponse> getMentionedUsersForComment(Comment comment) {
         return mentionRepository.findByCommentId(comment.getId())
@@ -64,21 +62,21 @@ public class MentionService {
                 .toList();
     }
     
-
     @Transactional(readOnly = true)
-    public List<CommentResponse> getMentionsForUser(Long userId) {
-    userRepository.findById(userId)
-            .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+    public PagedResponse<CommentResponse> getMentionsForUser(Long userId, int page, int pageSize) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+        Pageable pageable = PageRequest.of(page - 1, pageSize);   // API is 1-indexed, Spring is 0-indexed
+        Page<Mention> mentionsPage =
+                mentionRepository.findByMentionedUserIdOrderByCreatedAtDesc(userId, pageable);
 
-    List<Mention> mentions = mentionRepository
-            .findByMentionedUserIdOrderByCreatedAtDesc(userId, Pageable.unpaged())
-            .getContent();
+        List<CommentResponse> data = mentionsPage.getContent().stream()
+                .map(Mention::getComment)
+                .map(this::toCommentResponse)
+                .toList();
 
-    return mentions.stream()
-            .map(Mention::getComment)
-            .map(this::toCommentResponse)
-            .toList();
-}
+        return new PagedResponse<>(data, mentionsPage.getTotalElements(), page);
+    }
 
     private Set<String> extractMentionedUsernames(String content) { 
         Set<String> usernames = new LinkedHashSet<>();
@@ -95,12 +93,6 @@ public class MentionService {
         }
 
         return usernames;
-    }
-
-    private User findUserByUsernameIgnoreCase(String username){
-        User user = userRepository.findByUsernameIgnoreCase(username)
-                .orElseThrow(() -> new NotFoundException("User not found: " + username));
-        return user;
     }
 
     private MentionedUserResponse toMentionedUserResponse(User user){

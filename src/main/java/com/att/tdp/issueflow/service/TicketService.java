@@ -2,16 +2,20 @@ package com.att.tdp.issueflow.service;
 
 import com.att.tdp.issueflow.dto.request.CreateTicketRequest;
 import com.att.tdp.issueflow.dto.request.UpdateTicketRequest;
+import com.att.tdp.issueflow.dto.response.TicketDependencyResponse;
 import com.att.tdp.issueflow.dto.response.TicketResponse;
 import com.att.tdp.issueflow.entity.Ticket;
+import com.att.tdp.issueflow.entity.TicketDependency;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
+import com.att.tdp.issueflow.repository.TicketDependencyRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
 import com.att.tdp.issueflow.security.AuthenticatedUser;
 import com.att.tdp.issueflow.entity.enums.TicketStatus;
 import com.att.tdp.issueflow.entity.Project;
 import com.att.tdp.issueflow.exception.BadRequestException;
+import com.att.tdp.issueflow.exception.ConflictException;
 import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.repository.ProjectMemberRepository;
 
@@ -32,6 +36,7 @@ public class TicketService {
     private final UserRepository userRepository;
     private final AutoAssignmentService autoAssignmentService;
     private final ProjectMemberRepository projectMemberRepository;
+    private final TicketDependencyRepository ticketDependencyRepository;
     private static final Map<TicketStatus, Set<TicketStatus>> ALLOWED_TRANSITIONS = Map.of(
     TicketStatus.TODO,        Set.of(TicketStatus.IN_PROGRESS),
     TicketStatus.IN_PROGRESS, Set.of(TicketStatus.IN_REVIEW),
@@ -69,13 +74,20 @@ public class TicketService {
         Ticket ticket = ticketRepository.findByIdAndProjectDeletedFalseAndDeletedFalse(id)
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
         if(ticket.getStatus() == TicketStatus.DONE) {
-            throw new BadRequestException("Cannot update a ticket that is DONE");
+            throw new ConflictException("Cannot update a ticket that is DONE");
         }
         if(request.getStatus() != null && request.getStatus() != ticket.getStatus()) {
             if (!isValidTransition(ticket.getStatus(), request.getStatus())) {
                 throw new BadRequestException("Invalid status transition from " + ticket.getStatus() + " to " + request.getStatus());
             }
-            // TODO Phase 8: if requested == DONE, reject if any blocker is unresolved.
+            if (request.getStatus() == TicketStatus.DONE) {
+                for (TicketDependency dep : ticketDependencyRepository.findByBlockedTicketId(id)) {
+                    Ticket blocker = dep.getBlockerTicket();
+                    if (blocker.getStatus() != TicketStatus.DONE && !blocker.isDeleted()) {
+                        throw new ConflictException("Cannot mark ticket as DONE while blocked by unresolved tickets.");
+                    }
+                }
+            }
             ticket.setStatus(request.getStatus());
         }
         if(request.getPriority() != null && request.getPriority() != ticket.getPriority()) {
