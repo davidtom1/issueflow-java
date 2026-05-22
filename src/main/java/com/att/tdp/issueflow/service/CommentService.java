@@ -8,6 +8,7 @@ import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.entity.enums.AuditAction;
 import com.att.tdp.issueflow.entity.enums.AuditActorType;
 import com.att.tdp.issueflow.entity.enums.EntityType;
+import com.att.tdp.issueflow.exception.BadRequestException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.CommentRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
@@ -40,6 +41,9 @@ public class CommentService {
     public CommentResponse addComment(Long ticketId, CreateCommentRequest request, Long userId){
         Ticket ticket = ticketRepository.findByIdAndProjectDeletedFalseAndDeletedFalse(ticketId)
         .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));
+        if (request.getAuthorId() != null && !request.getAuthorId().equals(userId)) {
+            throw new BadRequestException("authorId must match the authenticated user");
+        }
         Comment comment = new Comment();
         comment.setContent(request.getContent());
         comment.setTicket(ticket);

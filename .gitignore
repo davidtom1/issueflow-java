@@ -6,6 +6,7 @@ target/
 .env
 application-local.yml
 application-local.yaml
+.claude/
 
 ### STS ###
 .apt_generated

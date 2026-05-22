@@ -20,8 +20,10 @@ public class UserController {
     private final UserService userService;
     
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request){
-        return ResponseEntity.ok(userService.createUser(request));
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request,
+        @AuthenticationPrincipal AuthenticatedUser actingUser
+    ){
+        return ResponseEntity.ok(userService.createUser(request, actingUser));
 
     }
 

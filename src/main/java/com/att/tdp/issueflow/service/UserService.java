@@ -7,9 +7,13 @@ import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.entity.enums.AuditAction;
 import com.att.tdp.issueflow.entity.enums.AuditActorType;
 import com.att.tdp.issueflow.entity.enums.EntityType;
+import com.att.tdp.issueflow.entity.enums.UserRole;
 import com.att.tdp.issueflow.exception.ConflictException;
+import com.att.tdp.issueflow.exception.ForbiddenException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.UserRepository;
+import com.att.tdp.issueflow.security.AuthenticatedUser;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,13 +31,22 @@ public class UserService {
     private final AuditLogService auditLogService;
 
     @Transactional
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(CreateUserRequest request, AuthenticatedUser actingUser) {
         if(userRepository.existsByUsernameIgnoreCase(request.getUsername())) {
             throw new ConflictException("Username already exists");
         }
         if(userRepository.existsByEmailIgnoreCase(request.getEmail())) {
             throw new ConflictException("Email already exists");
         }
+        boolean callerIsAdmin = actingUser != null
+            && userRepository.findById(actingUser.id())
+                 .map(u -> u.getRole() == UserRole.ADMIN)
+                 .orElse(false);
+        boolean isFirstUser = userRepository.count() == 0;
+        if (request.getRole() == UserRole.ADMIN && !callerIsAdmin && !isFirstUser) {
+            throw new ForbiddenException("Only an authenticated admin can create an ADMIN user");
+        }
+
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());

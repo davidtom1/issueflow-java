@@ -70,6 +70,10 @@ were intentional, not oversights.
 - **HTTP success status:** Every successful endpoint returns `200 OK` (including creates and
   no-body responses), per the README contract. Error statuses (400/401/404/409/500) are
   produced by a global exception handler.
+- **Admin bootstrap:** `POST /users` is public so the system can create its first account, but
+  ADMIN creation is guarded: an ADMIN may be created only by an authenticated ADMIN, or when the
+  users table is empty for first-user bootstrap. Unauthenticated callers may create DEVELOPER
+  users; non-admin authenticated callers may not create ADMIN users.
 - **Soft delete (projects & tickets):** Deletion is a soft delete (a `deleted` flag), never a
   physical delete. Soft-deleting a project does **not** cascade to its tickets; tickets simply
   become unreachable through project-scoped queries and reappear if the project is restored.

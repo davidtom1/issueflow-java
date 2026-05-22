@@ -68,6 +68,7 @@ accepted them:
   actor lookup failed. Fixed to never throw on the audit path.
 - `isOverdue` not set when a ticket was *promoted* to CRITICAL (only when already CRITICAL) — left a
   window where a CRITICAL ticket wasn't flagged. Fixed so promotion to CRITICAL flags it immediately.
+- a review flagged that the open registration endpoint let anyone self-register as ADMIN; I scoped it so anonymous callers can only create DEVELOPERs, with a first-user bootstrap exception, and proved it with tests
 
 
 ## Representative prompts
@@ -430,7 +431,7 @@ After implementation:
 3. List all files modified
 4. Stop and wait for review
 
-### Example 2 — test implementation from cases I designed 
+### Example 2 — scoped test delegation 
 Write integration tests for IssueFlow (Spring Boot 3.4, Java 21, package com.att.tdp.issueflow).
 Use @SpringBootTest(webEnvironment = MOCK) + @AutoConfigureMockMvc + @ActiveProfiles("test")
 with MockMvc, so the full filter chain (JWT auth) runs. The test profile uses H2 (create-drop).

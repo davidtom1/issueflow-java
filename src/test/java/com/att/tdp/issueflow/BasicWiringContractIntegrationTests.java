@@ -1,5 +1,8 @@
 package com.att.tdp.issueflow;
 
+import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.entity.enums.UserRole;
+import com.att.tdp.issueflow.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
@@ -11,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -43,6 +47,12 @@ class BasicWiringContractIntegrationTests {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Test
     void postUsersWithValidBodyReturnsUserProfile() throws Exception {
         String username = unique("valid_user");
@@ -55,6 +65,59 @@ class BasicWiringContractIntegrationTests {
                 .andExpect(jsonPath("$.username").value(username))
                 .andExpect(jsonPath("$.email").value(username + "@example.com"))
                 .andExpect(jsonPath("$.role").value("DEVELOPER"));
+    }
+
+    @Test
+    void unauthenticatedDeveloperCreationWorks() throws Exception {
+        String username = unique("public_developer");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(userBody(username, username + "@example.com", "DEVELOPER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.username").value(username))
+                .andExpect(jsonPath("$.email").value(username + "@example.com"))
+                .andExpect(jsonPath("$.role").value("DEVELOPER"));
+    }
+
+    @Test
+    void unauthenticatedAdminCreationIsBlockedWhenUsersAlreadyExist() throws Exception {
+        createUserAndLogin("DEVELOPER");
+        String username = unique("public_admin_blocked");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(userBody(username, username + "@example.com", "ADMIN"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void authenticatedDeveloperCannotCreateAdmin() throws Exception {
+        AuthenticatedTestUser developer = createUserAndLogin("DEVELOPER");
+        String username = unique("developer_admin_blocked");
+
+        mockMvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(userBody(username, username + "@example.com", "ADMIN"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void authenticatedAdminCanCreateAdmin() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        String username = unique("admin_created_admin");
+
+        mockMvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(userBody(username, username + "@example.com", "ADMIN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.username").value(username))
+                .andExpect(jsonPath("$.email").value(username + "@example.com"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
     }
 
     @Test
@@ -367,8 +430,19 @@ class BasicWiringContractIntegrationTests {
     private AuthenticatedTestUser createUserAndLogin(String role) throws Exception {
         String username = unique(role.toLowerCase() + "_user");
         String email = username + "@example.com";
-        MvcResult createResult = createUser(username, email, role);
-        long id = idFrom(createResult);
+        long id;
+        if ("ADMIN".equals(role)) {
+            User user = new User();
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setFullName("Test User");
+            user.setPasswordHash(passwordEncoder.encode(PASSWORD));
+            user.setRole(UserRole.ADMIN);
+            id = userRepository.saveAndFlush(user).getId();
+        } else {
+            MvcResult createResult = createUser(username, email, role);
+            id = idFrom(createResult);
+        }
 
         MvcResult loginResult = mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
