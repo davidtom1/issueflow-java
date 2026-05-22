@@ -29,8 +29,7 @@ import com.att.tdp.issueflow.repository.ProjectMemberRepository;
 import com.att.tdp.issueflow.repository.ProjectRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
-
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Reader;
 import java.io.StringWriter;
@@ -78,7 +77,6 @@ public class TicketCsvService {
         return writer.toString();
     }
 
-    @Transactional
     public CsvImportResponse importTickets(Long projectId,MultipartFile file, Long actingUserId){
         validateImportFile(file);
         Project project = projectRepository.findByIdAndDeletedFalse(projectId)

@@ -34,7 +34,7 @@ public class TicketEscalationService {
 
             if (newPriority != null) {
                 ticket.setPriority(newPriority);
-                ticket.setOverdue(false);
+                ticket.setOverdue(newPriority == TicketPriority.CRITICAL);
                 ticket.setLastAutoEscalatedAt(now);
                 auditLogService.record(
                         AuditAction.AUTO_ESCALATE,

@@ -94,6 +94,23 @@ class TicketEscalationServiceTest {
     }
 
     @Test
+    void promotionToCriticalSetsOverdueImmediately() {
+        Ticket ticket = createTicket(
+                TicketPriority.HIGH,
+                TicketStatus.IN_PROGRESS,
+                Instant.now().minus(Duration.ofDays(1)),
+                false,
+                null
+        );
+
+        ticketEscalationService.escalateOverdueTickets();
+
+        Ticket reloaded = ticketRepository.findById(ticket.getId()).orElseThrow();
+        assertThat(reloaded.getPriority()).isEqualTo(TicketPriority.CRITICAL);
+        assertThat(reloaded.isOverdue()).isTrue();
+    }
+
+    @Test
     void cooldownControlsWhetherOverdueTicketEscalates() {
         Ticket recentlyEscalated = createTicket(
                 TicketPriority.LOW,
