@@ -23,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -118,6 +120,100 @@ class BasicWiringContractIntegrationTests {
                 .andExpect(jsonPath("$.username").value(username))
                 .andExpect(jsonPath("$.email").value(username + "@example.com"))
                 .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void developerCannotSelfPromoteToAdminAndRoleRemainsDeveloper() throws Exception {
+        AuthenticatedTestUser developer = createUserAndLogin("DEVELOPER");
+
+        mockMvc.perform(post("/users/update/" + developer.id())
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("role", "ADMIN"))))
+                .andExpect(status().isForbidden());
+
+        MvcResult userResult = mockMvc.perform(get("/users/" + developer.id())
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode user = objectMapper.readTree(userResult.getResponse().getContentAsString());
+        assertEquals("DEVELOPER", user.get("role").asText());
+    }
+
+    @Test
+    void developerCannotPromoteAnotherUserToAdminAndRoleRemainsDeveloper() throws Exception {
+        AuthenticatedTestUser actingDeveloper = createUserAndLogin("DEVELOPER");
+        String username = unique("target_developer");
+        long targetDeveloperId = idFrom(createUser(username, username + "@example.com", "DEVELOPER"));
+
+        mockMvc.perform(post("/users/update/" + targetDeveloperId)
+                        .header(HttpHeaders.AUTHORIZATION, actingDeveloper.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("role", "ADMIN"))))
+                .andExpect(status().isForbidden());
+
+        MvcResult userResult = mockMvc.perform(get("/users/" + targetDeveloperId)
+                        .header(HttpHeaders.AUTHORIZATION, actingDeveloper.bearerToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode user = objectMapper.readTree(userResult.getResponse().getContentAsString());
+        assertEquals("DEVELOPER", user.get("role").asText());
+    }
+
+    @Test
+    void adminCanPromoteDeveloperToAdmin() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        String username = unique("admin_promoted_developer");
+        long developerId = idFrom(createUser(username, username + "@example.com", "DEVELOPER"));
+
+        MvcResult updateResult = mockMvc.perform(post("/users/update/" + developerId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("role", "ADMIN"))))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode updatedUser = objectMapper.readTree(updateResult.getResponse().getContentAsString());
+        assertEquals("ADMIN", updatedUser.get("role").asText());
+
+        MvcResult userResult = mockMvc.perform(get("/users/" + developerId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode user = objectMapper.readTree(userResult.getResponse().getContentAsString());
+        assertEquals("ADMIN", user.get("role").asText());
+    }
+
+    @Test
+    void adminCreatedUserAuditCreateRowUsesAdminAsActor() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        String username = unique("admin_audited_creator");
+
+        MvcResult createResult = mockMvc.perform(post("/users")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(userBody(username, username + "@example.com", "DEVELOPER"))))
+                .andExpect(status().isOk())
+                .andReturn();
+        long newUserId = idFrom(createResult);
+
+        MvcResult auditResult = mockMvc.perform(get("/audit-logs")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .param("entityType", "USER")
+                        .param("entityId", String.valueOf(newUserId))
+                        .param("action", "CREATE"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode auditLogs = objectMapper.readTree(auditResult.getResponse().getContentAsString());
+        boolean foundCreateRow = false;
+        for (JsonNode log : auditLogs) {
+            if ("CREATE".equals(log.get("action").asText()) && log.get("entityId").asLong() == newUserId) {
+                foundCreateRow = true;
+                long actorUserId = log.get("performedBy").asLong();
+                assertEquals(admin.id(), actorUserId);
+                assertNotEquals(newUserId, actorUserId);
+            }
+        }
+        assertTrue(foundCreateRow);
     }
 
     @Test

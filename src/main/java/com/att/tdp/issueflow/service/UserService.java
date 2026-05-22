@@ -55,7 +55,8 @@ public class UserService {
         user.setFullName(request.getFullName());
 
         User savedUser = userRepository.save(user);
-        auditLogService.record(AuditAction.CREATE,EntityType.USER,savedUser.getId(),AuditActorType.USER,savedUser.getId(),
+        Long actorId = (actingUser != null) ? actingUser.id() : savedUser.getId();
+        auditLogService.record(AuditAction.CREATE,EntityType.USER,savedUser.getId(),AuditActorType.USER,actorId,
                 null,null,null,
                 "User created: "+savedUser.getUsername());
 
@@ -92,9 +93,15 @@ public class UserService {
         if(request.getPassword() != null) {
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }
-        if(request.getRole() != null) {
+        if(request.getRole() != null && request.getRole() != user.getRole()) {
+            boolean actorIsAdmin = userRepository.findById(actingUserId)
+                    .map(u -> u.getRole() == UserRole.ADMIN)
+                    .orElse(false);
+            if (!actorIsAdmin) {
+                throw new ForbiddenException("Only an admin can change a user's role");
+            }
             user.setRole(request.getRole());
-        }  
+        }
         auditLogService.record(AuditAction.UPDATE,EntityType.USER,user.getId(),AuditActorType.USER,actingUserId,
                 null,null,null,
                 "User "+actingUserId+" updated user: "+user.getUsername());

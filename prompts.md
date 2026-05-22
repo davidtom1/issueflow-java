@@ -5,10 +5,10 @@ AI tools, what they did, what I did, and why I can be accountable for every line
 
 ## Tools used
 
-- **Claude (Opus 4.7)** — used through the Claude chat interface as a design reviewer, mentor,
+- **Claude Opus 4.7** — used through the Claude chat interface as a design reviewer, mentor,
   and code reviewer. It did not write production code; it explained tradeoffs, reviewed my code
   line-by-line, caught bugs, and quizzed me on the decisions I'd need to defend.
-- **Codex** — used as a coding agent (in VS Code) to generate
+- **Codex (OpenAI's coding agent)** — used in VS Code to generate
   boilerplate and to implement tests whose *cases* I had already designed.
 
 ## Why I worked this way
@@ -40,8 +40,8 @@ These are choices I made deliberately. For each I can explain the alternatives a
   The predicate is `status != DONE && !deleted`. A soft-deleted blocker's dependency row is kept for
   audit but no longer gates the transition.
 - **Audit logging in the caller's transaction (`REQUIRED`, not `REQUIRES_NEW`).** The audit log
-  mirrors committed state, so it should commit with the action it logs and never roll back the
-  business operation. (`record` therefore has no throwing path on the audit side.)
+  mirrors committed state, so it should commit with the action it logs and should not be the reason
+  a business operation fails. (`record` therefore has no throwing path on the audit side.)
 - **Escalation idempotency via a one-hour cooldown** on `lastAutoEscalatedAt`, so an overdue ticket
   climbs at most one priority level per hour instead of racing to CRITICAL; status is never changed.
 - **`isOverdue` is a terminal marker** (reached CRITICAL), not a "past due date" flag — past-due is
