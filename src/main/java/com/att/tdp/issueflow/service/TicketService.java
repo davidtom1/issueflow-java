@@ -96,6 +96,7 @@ public class TicketService {
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
         Long oldAssigneeId = ticket.getAssignee() != null ? ticket.getAssignee().getId() : null;
         TicketStatus oldStatus = ticket.getStatus();
+        boolean nonStatusFieldChanged = false;
         if(ticket.getStatus() == TicketStatus.DONE) {
             throw new ConflictException("Cannot update a ticket that is DONE");
         }
@@ -115,21 +116,26 @@ public class TicketService {
         }
         if(request.getPriority() != null && request.getPriority() != ticket.getPriority()) {
             ticket.setPriority(request.getPriority());
+            nonStatusFieldChanged = true;
             // Clear escalation state on manual priority change
             ticket.setOverdue(false);
             ticket.setLastAutoEscalatedAt(null);
         }
                 if (request.getTitle() != null) {
             ticket.setTitle(request.getTitle());
+            nonStatusFieldChanged = true;
         }
         if (request.getDescription() != null) {
             ticket.setDescription(request.getDescription());
+            nonStatusFieldChanged = true;
         }
         if (request.getType() != null) {
             ticket.setType(request.getType());
+            nonStatusFieldChanged = true;
         }
         if (request.getDueDate() != null) {
             ticket.setDueDate(request.getDueDate());
+            nonStatusFieldChanged = true;
         }
         User assignee;
         if (request.getAssigneeId() != null) {
@@ -151,9 +157,11 @@ public class TicketService {
             AuditActorType.USER,actorUserId,savedTicket.getProject().getId(),savedTicket.getId(),
             "Old status: " + oldStatus,"New status: " + savedTicket.getStatus());
             }
-        auditLogService.record(AuditAction.UPDATE,EntityType.TICKET,ticket.getId(),
+        if (nonStatusFieldChanged) {
+            auditLogService.record(AuditAction.UPDATE,EntityType.TICKET,ticket.getId(),
                             AuditActorType.USER,actorUserId,ticket.getProject().getId(),ticket.getId(),null,
                             "Ticket updated with title: " + ticket.getTitle());
+        }
         return toResponse(ticket);
     }
 

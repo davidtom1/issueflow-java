@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -301,6 +303,65 @@ class BasicWiringContractIntegrationTests {
                 .andExpect(jsonPath("$[?(@.id == " + blockerTicketId + ")]").isNotEmpty())
                 .andExpect(jsonPath("$[?(@.id == " + blockerTicketId + ")].title").value(hasItem("Blocking ticket")))
                 .andExpect(jsonPath("$[?(@.id == " + blockerTicketId + ")].status").value(hasItem("IN_PROGRESS")));
+    }
+
+    @Test
+    void ticketAuditLogsSeparateStatusChangesFromNonStatusUpdates() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        MvcResult projectResult = createProject(admin, unique("ticket_audit_project"));
+        long projectId = idFrom(projectResult);
+
+        MvcResult statusOnlyTicketResult = createTicket(admin, projectId, unique("status_only_ticket"), "TODO");
+        long statusOnlyTicketId = idFrom(statusOnlyTicketResult);
+
+        mockMvc.perform(patch("/tickets/" + statusOnlyTicketId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("status", "IN_PROGRESS"))))
+                .andExpect(status().isOk());
+
+        MvcResult statusOnlyAuditResult = mockMvc.perform(get("/audit-logs")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .param("entityType", "TICKET")
+                        .param("entityId", String.valueOf(statusOnlyTicketId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode statusOnlyLogs = objectMapper.readTree(statusOnlyAuditResult.getResponse().getContentAsString());
+        boolean statusOnlyHasStatusChange = false;
+        boolean statusOnlyHasUpdate = false;
+        for (JsonNode log : statusOnlyLogs) {
+            String action = log.get("action").asText();
+            statusOnlyHasStatusChange = statusOnlyHasStatusChange || "STATUS_CHANGE".equals(action);
+            statusOnlyHasUpdate = statusOnlyHasUpdate || "UPDATE".equals(action);
+        }
+        assertTrue(statusOnlyHasStatusChange);
+        assertFalse(statusOnlyHasUpdate);
+
+        MvcResult titleOnlyTicketResult = createTicket(admin, projectId, unique("title_only_ticket"), "TODO");
+        long titleOnlyTicketId = idFrom(titleOnlyTicketResult);
+
+        mockMvc.perform(patch("/tickets/" + titleOnlyTicketId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("title", unique("renamed_ticket")))))
+                .andExpect(status().isOk());
+
+        MvcResult titleOnlyAuditResult = mockMvc.perform(get("/audit-logs")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken())
+                        .param("entityType", "TICKET")
+                        .param("entityId", String.valueOf(titleOnlyTicketId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode titleOnlyLogs = objectMapper.readTree(titleOnlyAuditResult.getResponse().getContentAsString());
+        boolean titleOnlyHasUpdate = false;
+        boolean titleOnlyHasStatusChange = false;
+        for (JsonNode log : titleOnlyLogs) {
+            String action = log.get("action").asText();
+            titleOnlyHasUpdate = titleOnlyHasUpdate || "UPDATE".equals(action);
+            titleOnlyHasStatusChange = titleOnlyHasStatusChange || "STATUS_CHANGE".equals(action);
+        }
+        assertTrue(titleOnlyHasUpdate);
+        assertFalse(titleOnlyHasStatusChange);
     }
 
     private AuthenticatedTestUser createUserAndLogin(String role) throws Exception {
