@@ -8,7 +8,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpStatus;
+import com.att.tdp.issueflow.security.AuthenticatedUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 
@@ -36,14 +37,18 @@ public class UserController {
     }
 
     @PostMapping("/update/{userId}")
-    public ResponseEntity<UserResponse> updateUser(@PathVariable Long userId,@Valid @RequestBody UpdateUserRequest request){
-        return ResponseEntity.ok(userService.updateUser(userId, request));
+    public ResponseEntity<UserResponse> updateUser(@PathVariable Long userId,
+        @Valid @RequestBody UpdateUserRequest request, 
+        @AuthenticationPrincipal AuthenticatedUser actingUser
+    ){
+        return ResponseEntity.ok(userService.updateUser(userId, request, actingUser.id()));
 
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userId){
-            userService.deleteUser(userId);
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId
+        , @AuthenticationPrincipal AuthenticatedUser actingUser){
+            userService.deleteUser(userId, actingUser.id());
             return ResponseEntity.ok().build();
 
     }

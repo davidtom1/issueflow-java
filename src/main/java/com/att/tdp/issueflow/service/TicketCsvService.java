@@ -17,6 +17,9 @@ import com.att.tdp.issueflow.dto.response.CsvImportResponse;
 import com.att.tdp.issueflow.entity.Project;
 import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.entity.enums.AuditAction;
+import com.att.tdp.issueflow.entity.enums.AuditActorType;
+import com.att.tdp.issueflow.entity.enums.EntityType;
 import com.att.tdp.issueflow.entity.enums.TicketPriority;
 import com.att.tdp.issueflow.entity.enums.TicketStatus;
 import com.att.tdp.issueflow.entity.enums.TicketType;
@@ -26,6 +29,9 @@ import com.att.tdp.issueflow.repository.ProjectMemberRepository;
 import com.att.tdp.issueflow.repository.ProjectRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
 import com.att.tdp.issueflow.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
+
 import java.io.Reader;
 import java.io.StringWriter;
 
@@ -39,6 +45,7 @@ public class TicketCsvService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final AuditLogService auditLogService;
     private final AutoAssignmentService autoAssignmentService;
 
     public String exportTickets(Long projectId) {
@@ -67,11 +74,12 @@ public class TicketCsvService {
         } catch (IOException e) {
             throw new BadRequestException("Could not write CSV file");
         }
-
+        
         return writer.toString();
     }
 
-    public CsvImportResponse importTickets(Long projectId,MultipartFile file){
+    @Transactional
+    public CsvImportResponse importTickets(Long projectId,MultipartFile file, Long actingUserId){
         validateImportFile(file);
         Project project = projectRepository.findByIdAndDeletedFalse(projectId)
                 .orElseThrow(() -> new NotFoundException("Project not found with id: " + projectId));
@@ -102,7 +110,9 @@ public class TicketCsvService {
         } catch (IOException e) {
             throw new BadRequestException("Could not read CSV file");
         }
-
+        auditLogService.record(AuditAction.CSV_IMPORT,EntityType.PROJECT,project.getId(),AuditActorType.USER,actingUserId,
+        project.getId(),null,null,
+        "Imported tickets from CSV file. Created: " + createdCount + ", failed: " + errors.size());
         return new CsvImportResponse(
                 createdCount,
                 errors.size(),
@@ -111,9 +121,7 @@ public class TicketCsvService {
     }
 
 
-
-    
-        
+ 
     private void validateImportFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("CSV file is empty");
@@ -199,8 +207,4 @@ public class TicketCsvService {
         }
         return assignee;
     }
-
-
-
-
 }

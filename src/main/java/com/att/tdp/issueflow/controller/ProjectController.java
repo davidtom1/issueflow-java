@@ -41,17 +41,26 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<ProjectResponse> createProject(@Valid @RequestBody CreateProjectRequest request) {
-        return ResponseEntity.ok(projectService.createProject(request));
+    public ResponseEntity<ProjectResponse> createProject(
+            @Valid @RequestBody CreateProjectRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actingUser
+    ) {
+        return ResponseEntity.ok(projectService.createProject(request, actingUser.id()));
     }
 
     @PatchMapping("/{projectId}")
     public ResponseEntity<Void> updateProject(
             @PathVariable Long projectId,
-            @Valid @RequestBody UpdateProjectRequest request
+            @Valid @RequestBody UpdateProjectRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actingUser
     ) {
-        projectService.updateProject(projectId, request);
+        projectService.updateProject(projectId, request, actingUser);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/deleted")
+    public ResponseEntity<List<ProjectResponse>> getDeletedProjects() {
+        return ResponseEntity.ok(projectService.getDeletedProjects());
     }
 
     @DeleteMapping("/{projectId}")
@@ -66,5 +75,11 @@ public class ProjectController {
     @GetMapping("/{projectId}/workload")
     public ResponseEntity<List<WorkloadEntryResponse>> getWorkload(@PathVariable Long projectId) {
         return ResponseEntity.ok(workloadService.getWorkload(projectId));
+    }
+    
+    @PostMapping("/{projectId}/restore")
+    public ResponseEntity<Void> restoreProject(@PathVariable Long projectId,@AuthenticationPrincipal AuthenticatedUser actingUser){
+        projectService.restoreProject(projectId, actingUser);
+        return ResponseEntity.ok().build();
     }
 }

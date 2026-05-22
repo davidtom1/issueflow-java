@@ -3,6 +3,9 @@ import com.att.tdp.issueflow.dto.response.AttachmentResponse;
 import com.att.tdp.issueflow.entity.Attachment;
 import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.entity.enums.AuditAction;
+import com.att.tdp.issueflow.entity.enums.AuditActorType;
+import com.att.tdp.issueflow.entity.enums.EntityType;
 import com.att.tdp.issueflow.exception.BadRequestException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.AttachmentRepository;
@@ -22,6 +25,7 @@ public class AttachmentService {
     private final AttachmentRepository attachmentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
         "image/png",
@@ -53,6 +57,9 @@ public AttachmentResponse uploadAttachment(
             throw new BadRequestException("Could not read uploaded file");
         }
         Attachment savedAttachment = attachmentRepository.save(attachment);
+        auditLogService.record(AuditAction.ATTACHMENT_UPLOAD,EntityType.ATTACHMENT,attachment.getId(),
+                            AuditActorType.USER,user.getId(),ticket.getProject().getId(),ticket.getId(),null,
+                            "Attachment uploaded with filename: " + savedAttachment.getFilename());
         return toResponse(savedAttachment);
 }
 
@@ -70,6 +77,9 @@ public void deleteAttachment(
             throw new BadRequestException("Attachment does not belong to the specified ticket");
         }
         User user = userRepository.findById(authenticatedUser.id()).orElseThrow(() -> new NotFoundException("User not found with id: " + authenticatedUser.id()));
+        auditLogService.record(AuditAction.ATTACHMENT_DELETE,EntityType.ATTACHMENT,attachment.getId(),
+                            AuditActorType.USER,user.getId(),ticket.getProject().getId(),ticket.getId(),null,
+                            "Attachment deleted with filename: " + attachment.getFilename());
         attachmentRepository.delete(attachment);
 }
 

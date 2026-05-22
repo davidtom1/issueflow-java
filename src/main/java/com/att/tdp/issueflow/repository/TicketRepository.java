@@ -38,6 +38,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     Optional<Ticket> findByIdAndDeletedFalse(Long id);
     List<Ticket> findByProjectIdAndProjectDeletedFalseAndDeletedFalse(Long projectId);
     Optional<Ticket> findByIdAndProjectDeletedFalseAndDeletedFalse(Long id);
+    List<Ticket> findByProjectIdAndProjectDeletedFalseAndDeletedTrue(Long projectId);
+    Optional<Ticket> findByIdAndProjectDeletedFalseAndDeletedTrue(Long id);
     
 }
 

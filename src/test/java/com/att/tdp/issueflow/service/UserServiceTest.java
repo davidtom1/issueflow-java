@@ -25,6 +25,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private UserService userService;
 
@@ -37,7 +40,7 @@ class UserServiceTest {
         doThrow(new DataIntegrityViolationException("referenced"))
                 .when(userRepository).flush();
 
-        assertThatThrownBy(() -> userService.deleteUser(42L))
+        assertThatThrownBy(() -> userService.deleteUser(42L, 99L))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("User is referenced and cannot be deleted");
     }

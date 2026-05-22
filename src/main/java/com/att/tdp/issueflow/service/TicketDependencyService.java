@@ -4,6 +4,9 @@ import com.att.tdp.issueflow.dto.response.TicketDependencyResponse;
 import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.TicketDependency;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.entity.enums.AuditAction;
+import com.att.tdp.issueflow.entity.enums.AuditActorType;
+import com.att.tdp.issueflow.entity.enums.EntityType;
 import com.att.tdp.issueflow.exception.BadRequestException;
 import com.att.tdp.issueflow.exception.ConflictException;
 import com.att.tdp.issueflow.exception.NotFoundException;
@@ -26,6 +29,7 @@ public class TicketDependencyService {
     private final TicketDependencyRepository ticketDependencyRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
 
     @Transactional
@@ -53,7 +57,11 @@ public class TicketDependencyService {
         dep.setBlockerTicket(blocker);
         dep.setCreatedBy(actingUserEntity);
         ticketDependencyRepository.save(dep);
-        // // TODO audit: action=DEPENDENCY_ADD, entityType=TICKET_DEPENDENCY
+
+        auditLogService.record(AuditAction.DEPENDENCY_ADD,EntityType.TICKET_DEPENDENCY,dep.getId(),AuditActorType.USER,actingUserEntity.getId(),
+        blocked.getProject().getId(),blocked.getId(),null,
+        "Ticket "+blockedTicketId+" now depends on ticket "+blockerTicketId);
+
     }
 
     @Transactional(readOnly = true)
@@ -67,13 +75,19 @@ public class TicketDependencyService {
     }
 
     @Transactional
-    public void removeDependency(Long blockedTicketId, Long blockerTicketId){
+    public void removeDependency(Long blockedTicketId, Long blockerTicketId, long actingUserId) {
         if(!ticketDependencyRepository.existsByBlockedTicketIdAndBlockerTicketId(blockedTicketId, blockerTicketId)) {
             throw new NotFoundException("Dependency not found.");
         }
-        ticketDependencyRepository.deleteByBlockedTicketIdAndBlockerTicketId(blockedTicketId, blockerTicketId);
-        // TODO audit: action=DEPENDENCY_REMOVE, entityType=TICKET_DEPENDENCY   
+        Ticket blocked = ticketRepository.findByIdAndDeletedFalse(blockedTicketId)
+                .orElseThrow(() -> new NotFoundException("Blocked ticket not found or deleted."));
 
+        TicketDependency dep = ticketDependencyRepository.findByBlockedTicketIdAndBlockerTicketId(blockedTicketId, blockerTicketId)
+                .orElseThrow(() -> new NotFoundException("Dependency not found."));
+        auditLogService.record(AuditAction.DEPENDENCY_REMOVE,EntityType.TICKET_DEPENDENCY,dep.getId(),AuditActorType.USER,actingUserId,
+                blocked.getProject().getId(),blocked.getId(),null,
+                "Ticket "+blockedTicketId+" no longer depends on ticket "+blockerTicketId);
+        ticketDependencyRepository.deleteByBlockedTicketIdAndBlockerTicketId(blockedTicketId, blockerTicketId);
     }
 
     private Ticket getVisibleTicket(Long ticketId){

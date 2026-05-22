@@ -42,18 +42,20 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.getTicketById(ticketId));
     }
     @PostMapping
-    public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody CreateTicketRequest request){
-        return ResponseEntity.ok(ticketService.createTicket(request));
+    public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody CreateTicketRequest request,
+         @AuthenticationPrincipal AuthenticatedUser actingUser){
+        return ResponseEntity.ok(ticketService.createTicket(request, actingUser.id()));
     }
 
     @PatchMapping("/{ticketId}")
     public ResponseEntity<TicketResponse> updateTicket(
             @PathVariable Long ticketId,
-            @Valid @RequestBody UpdateTicketRequest request
+            @Valid @RequestBody UpdateTicketRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actingUser
     ){
-        return ResponseEntity.ok(ticketService.updateTicket(ticketId, request));
-
+        return ResponseEntity.ok(ticketService.updateTicket(ticketId, request, actingUser.id()));
     }
+
     @DeleteMapping("/{ticketId}")
     public ResponseEntity<Void> deleteTicket(
             @PathVariable Long ticketId,
@@ -77,9 +79,26 @@ public class TicketController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CsvImportResponse> importTickets(
         @RequestPart("file") MultipartFile file,
-        @RequestParam Long projectId
-) {
-    CsvImportResponse response = ticketCsvService.importTickets(projectId, file);
-    return ResponseEntity.ok(response);
-}
+        @RequestParam Long projectId,
+        @AuthenticationPrincipal AuthenticatedUser actingUser
+    ) {
+        CsvImportResponse response = ticketCsvService.importTickets(projectId, file, actingUser.id());
+        return ResponseEntity.ok(response);
+    }
+
+
+    @GetMapping("/deleted")
+    public ResponseEntity<List<TicketResponse>> getDeletedTicketsByProject(@RequestParam Long projectId){
+        return ResponseEntity.ok(ticketService.getDeletedTicketsByProject(projectId));
+    }
+
+    @PostMapping("/{ticketId}/restore")
+    public ResponseEntity<Void> restoreTicket(@PathVariable Long ticketId,
+        @AuthenticationPrincipal AuthenticatedUser actingUser
+    ) {
+        ticketService.restoreTicket(ticketId, actingUser.id());
+        return ResponseEntity.ok().build();
+    }
+
+
 }

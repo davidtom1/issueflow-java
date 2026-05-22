@@ -2,10 +2,12 @@ package com.att.tdp.issueflow.controller;
 
 import com.att.tdp.issueflow.dto.request.AddProjectMemberRequest;
 import com.att.tdp.issueflow.dto.response.UserResponse;
+import com.att.tdp.issueflow.security.AuthenticatedUser;
 import com.att.tdp.issueflow.service.ProjectMemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,15 +26,19 @@ public class ProjectMemberController {
     @PostMapping("/projects/{projectId}/members")
     public ResponseEntity<Void> addMember(
             @PathVariable Long projectId,
-            @Valid @RequestBody AddProjectMemberRequest request
+            @Valid @RequestBody AddProjectMemberRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actingUser
     ) {
-        projectMemberService.addMember(projectId, request.getUserId());
+        projectMemberService.addMember(projectId, request.getUserId(), actingUser.id());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/projects/{projectId}/members/{userId}")
-    public ResponseEntity<Void> removeMember(@PathVariable Long projectId, @PathVariable Long userId) {
-        projectMemberService.removeMember(projectId, userId);
+    public ResponseEntity<Void> removeMember(
+        @PathVariable Long projectId,
+         @PathVariable Long userId,
+         @AuthenticationPrincipal AuthenticatedUser actingUser) {
+        projectMemberService.removeMember(projectId, userId, actingUser.id());
         return ResponseEntity.ok().build();
     }
 

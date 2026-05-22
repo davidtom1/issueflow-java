@@ -212,6 +212,73 @@ class BasicWiringContractIntegrationTests {
     }
 
     @Test
+    void adminCanGetDeletedProjects() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+
+        mockMvc.perform(get("/projects/deleted")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanRestoreSoftDeletedProject() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        MvcResult projectResult = createProject(admin, unique("admin_restore_project"));
+        long projectId = idFrom(projectResult);
+
+        mockMvc.perform(delete("/projects/" + projectId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/projects/" + projectId + "/restore")
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/projects/" + projectId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(projectId));
+    }
+
+    @Test
+    void developerCannotGetDeletedProjects() throws Exception {
+        AuthenticatedTestUser developer = createUserAndLogin("DEVELOPER");
+
+        mockMvc.perform(get("/projects/deleted")
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void developerCannotRestoreSoftDeletedProject() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        AuthenticatedTestUser developer = createUserAndLogin("DEVELOPER");
+        MvcResult projectResult = createProject(admin, unique("developer_restore_forbidden_project"));
+        long projectId = idFrom(projectResult);
+
+        mockMvc.perform(delete("/projects/" + projectId)
+                        .header(HttpHeaders.AUTHORIZATION, admin.bearerToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/projects/" + projectId + "/restore")
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void developerCannotGetDeletedTicketsByProject() throws Exception {
+        AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
+        AuthenticatedTestUser developer = createUserAndLogin("DEVELOPER");
+        MvcResult projectResult = createProject(admin, unique("developer_deleted_tickets_forbidden_project"));
+        long projectId = idFrom(projectResult);
+
+        mockMvc.perform(get("/tickets/deleted")
+                        .param("projectId", String.valueOf(projectId))
+                        .header(HttpHeaders.AUTHORIZATION, developer.bearerToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void ticketDependenciesHappyPathAddsAndListsDependency() throws Exception {
         AuthenticatedTestUser admin = createUserAndLogin("ADMIN");
         MvcResult projectResult = createProject(admin, unique("dependency_project"));

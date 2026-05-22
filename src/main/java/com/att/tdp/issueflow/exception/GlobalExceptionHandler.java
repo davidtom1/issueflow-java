@@ -8,6 +8,7 @@ import java.util.List;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -46,6 +47,14 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(HttpStatus.CONFLICT, "Resource was modified by another transaction", request);
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+        public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+                AccessDeniedException exception,
+                HttpServletRequest request
+        ){
+                return buildResponse(HttpStatus.FORBIDDEN, "Access denied", request);
+        }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(

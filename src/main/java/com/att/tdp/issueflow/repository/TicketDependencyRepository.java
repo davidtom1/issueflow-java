@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TicketDependencyRepository extends JpaRepository<TicketDependency, Long> {
     List<TicketDependency> findByBlockedTicketId(Long blockedTicketId);
@@ -14,4 +15,9 @@ public interface TicketDependencyRepository extends JpaRepository<TicketDependen
     @Modifying
     @Transactional
     void deleteByBlockedTicketIdAndBlockerTicketId(Long blockedTicketId, Long blockerTicketId);
+
+    Optional<TicketDependency> findByBlockedTicketIdAndBlockerTicketId(
+        Long blockedTicketId,
+        Long blockerTicketId
+);
 }

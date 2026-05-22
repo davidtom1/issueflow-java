@@ -4,6 +4,9 @@ import com.att.tdp.issueflow.dto.request.CreateUserRequest;
 import com.att.tdp.issueflow.dto.request.UpdateUserRequest;
 import com.att.tdp.issueflow.dto.response.UserResponse;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.entity.enums.AuditAction;
+import com.att.tdp.issueflow.entity.enums.AuditActorType;
+import com.att.tdp.issueflow.entity.enums.EntityType;
 import com.att.tdp.issueflow.exception.ConflictException;
 import com.att.tdp.issueflow.exception.NotFoundException;
 import com.att.tdp.issueflow.repository.UserRepository;
@@ -21,6 +24,7 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
@@ -38,6 +42,11 @@ public class UserService {
         user.setFullName(request.getFullName());
 
         User savedUser = userRepository.save(user);
+        auditLogService.record(AuditAction.CREATE,EntityType.USER,savedUser.getId(),AuditActorType.USER,savedUser.getId(),
+                null,null,null,
+                "User created: "+savedUser.getUsername());
+
+
         return toResponse(savedUser);
     }
     
@@ -55,7 +64,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request,Long actingUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("User not found"));
         if(request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
@@ -73,14 +82,21 @@ public class UserService {
         if(request.getRole() != null) {
             user.setRole(request.getRole());
         }  
+        auditLogService.record(AuditAction.UPDATE,EntityType.USER,user.getId(),AuditActorType.USER,actingUserId,
+                null,null,null,
+                "User "+actingUserId+" updated user: "+user.getUsername());
+
         return toResponse(user);
     }
 
     @Transactional
-    public void deleteUser(Long id) {
+    public void deleteUser(Long id,Long actingUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("User not found"));
         try {
+            auditLogService.record(AuditAction.DELETE,EntityType.USER,user.getId(),AuditActorType.USER,actingUserId,
+                null,null,null,
+                "User "+actingUserId+" deleted: "+user.getUsername());
             userRepository.delete(user);
             userRepository.flush();
         } catch (DataIntegrityViolationException exception) {

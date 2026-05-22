@@ -37,9 +37,10 @@ public class TicketDependencyController {
     @DeleteMapping("/{blockerId}")
     public ResponseEntity<Void> removeDependency(
             @PathVariable Long ticketId,
-            @PathVariable Long blockerId
+            @PathVariable Long blockerId,
+            @AuthenticationPrincipal AuthenticatedUser actingUser
     ) {
-        ticketDependencyService.removeDependency(ticketId, blockerId);
+        ticketDependencyService.removeDependency(ticketId, blockerId, actingUser.id());
         return ResponseEntity.ok().build();
     }
 }

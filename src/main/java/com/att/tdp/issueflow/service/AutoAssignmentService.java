@@ -43,6 +43,7 @@ public class AutoAssignmentService {
             Long count = (Long) row[1];
             countByUserId.put(userId, count);
         }
+        // TODO audit:
             return developers.stream().min(
                     Comparator.comparingLong((User u) -> countByUserId.getOrDefault(u.getId(), 0L))
                         .thenComparing(User::getCreatedAt)
